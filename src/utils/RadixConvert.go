@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-func IntToHex(num int64) []byte {
+func IntToHexBytes(num int64) []byte {
 	var buffer = new(bytes.Buffer)
 	if err := binary.Write(buffer, binary.BigEndian, num); err != nil {
 		log.Panic(err)

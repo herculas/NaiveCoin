@@ -1,20 +1,43 @@
 package block
 
+import (
+	"naivecoin-go/src/database"
+)
+
+const cursorName = "latest"
+
 type Blockchain struct {
-	Blocks []*Block
+	latestHash []byte
 }
 
 func (blockchain *Blockchain) AddBlockToBlockchain(data string) {
-	var height = blockchain.Blocks[len(blockchain.Blocks) - 1].Height + 1
-	var previousHash = blockchain.Blocks[len(blockchain.Blocks) - 1].Hash
-	var newBlock = CreateBlock(data, height, previousHash)
-	blockchain.Blocks = append(blockchain.Blocks, newBlock)
+	var latestBlockBytes = database.Retrieve(blockchain.latestHash)
+	var latestBlock = Deserialize(latestBlockBytes)
+	var newBlock = createBlock(data, latestBlock.Height + 1, latestBlock.Hash)
+	database.Update(newBlock.Hash, newBlock.Serialize())
+	database.Update([]byte(cursorName), newBlock.Hash)
+	blockchain.latestHash = newBlock.Hash
 }
 
-// create a blockchain with genesis block
-func CreateBlockchainWithGenesisBlock() *Blockchain {
-	var genesisBlock = CreateGenesisBlock("Genesis block")
-	return &Blockchain{
-		Blocks: []*Block{genesisBlock},
+func (blockchain *Blockchain) Description() {
+	var iterator = blockchain.Iterator()
+	var currentBlock *Block
+	for iterator.hasNext() {
+		currentBlock = iterator.next()
+		currentBlock.Description()
 	}
+}
+
+func (blockchain *Blockchain) Iterator() *BlockchainIterator {
+	return &BlockchainIterator{
+		currentHash: blockchain.latestHash,
+	}
+}
+
+func CreateBlockchainWithGenesisBlock() *Blockchain {
+	var genesisBlock = createGenesisBlock("Genesis block")
+	database.DeleteBucket()
+	database.Update(genesisBlock.Hash, genesisBlock.Serialize())
+	database.Update([]byte(cursorName), genesisBlock.Hash)
+	return &Blockchain{latestHash: genesisBlock.Hash}
 }
