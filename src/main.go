@@ -1,12 +1,7 @@
 package main
 
-import (
-	"naivecoin-go/src/block"
-)
+import "naivecoin-go/src/command"
 
 func main() {
-	var chain = block.CreateBlockchainWithGenesisBlock()
-	chain.AddBlockToBlockchain("Send 100 satoshi to Rui")
-	chain.AddBlockToBlockchain("Send 200 satoshi to Rui")
-	chain.Description()
+	command.Run()
 }

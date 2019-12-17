@@ -1,22 +1,23 @@
-package block
+package blockchain
 
 import (
 	"math/big"
+	"naivecoin-go/src/block"
 	"naivecoin-go/src/database"
 )
 
-type BlockchainIterator struct {
+type Iterator struct {
 	currentHash []byte
 }
 
-func (iterator *BlockchainIterator) next() *Block {
+func (iterator *Iterator) next() *block.Block {
 	var currentBlockBytes = database.Retrieve(iterator.currentHash)
-	var currentBlock = Deserialize(currentBlockBytes)
+	var currentBlock = block.Deserialize(currentBlockBytes)
 	iterator.currentHash = currentBlock.PreviousHash
 	return currentBlock
 }
 
-func (iterator *BlockchainIterator) hasNext() bool {
+func (iterator *Iterator) hasNext() bool {
 	var previousHashInt = new(big.Int)
 	previousHashInt.SetBytes(iterator.currentHash)
 	return big.NewInt(0).Cmp(previousHashInt) != 0

@@ -3,9 +3,10 @@ package database
 import (
 	"github.com/boltdb/bolt"
 	"log"
+	"os"
 )
 
-const databaseName = "src/data/naivechain.db"
+const databaseName = "data/naivechain.db"
 const bucketName = "blocks"
 
 func establishConnection() *bolt.DB {
@@ -14,4 +15,9 @@ func establishConnection() *bolt.DB {
 		log.Fatal(err)
 	}
 	return database
+}
+
+func Exists() bool {
+	_, err := os.Stat(databaseName)
+	return !os.IsNotExist(err)
 }

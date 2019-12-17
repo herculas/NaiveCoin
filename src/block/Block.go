@@ -44,7 +44,7 @@ func Deserialize(blockBytes []byte) *Block {
 	return &block
 }
 
-func createBlock(data string, height int64, previousHash []byte) *Block {
+func CreateBlock(data string, height int64, previousHash []byte) *Block {
 	var newBlock = &Block{
 		Height:       height,
 		Timestamp:    time.Now().Unix(),
@@ -60,8 +60,8 @@ func createBlock(data string, height int64, previousHash []byte) *Block {
 	return newBlock
 }
 
-func createGenesisBlock(data string) *Block {
-	return createBlock(data, 0, []byte{
+func CreateGenesisBlock(data string) *Block {
+	return CreateBlock(data, 0, []byte{
 		0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0,
