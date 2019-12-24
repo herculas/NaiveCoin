@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"naivecoin-go/src/block"
 	"naivecoin-go/src/database"
-	"os"
+	"naivecoin-go/src/transaction"
 )
 
-const cursorName = "latest"
+const CursorName = "latest"
 
 type Blockchain struct {
 	latestHash []byte
@@ -19,40 +19,85 @@ func (blockchain *Blockchain) iterator() *Iterator {
 	}
 }
 
-func (blockchain *Blockchain) AddBlock(data string) {
+func (blockchain *Blockchain) AddBlock(transactions []*transaction.Transaction) {
 	var latestBlockBytes = database.Retrieve(blockchain.latestHash)
 	var latestBlock = block.Deserialize(latestBlockBytes)
-	var newBlock = block.CreateBlock(data, latestBlock.Height + 1, latestBlock.Hash)
+	var newBlock = block.CreateBlock(transactions, latestBlock.Height + 1, latestBlock.Hash)
 	database.Update(newBlock.Hash, newBlock.Serialize())
-	database.Update([]byte(cursorName), newBlock.Hash)
+	database.Update([]byte(CursorName), newBlock.Hash)
 	blockchain.latestHash = newBlock.Hash
 }
 
-func (blockchain *Blockchain) Description() {
+func (blockchain *Blockchain) Description() string {
+	var description string
 	var iterator = blockchain.iterator()
 	var currentBlock *block.Block
 	for iterator.hasNext() {
 		currentBlock = iterator.next()
-		currentBlock.Description()
+		description += currentBlock.Description()
 	}
+	return description
 }
 
-func InitializeBlockchain(data string) {
-	if database.Exists() {
-		fmt.Println("Fatal: blockchain has already existed.")
-		os.Exit(1)
+func (blockchain *Blockchain) DescribeTransactions() string {
+	var description string
+	var iterator = blockchain.iterator()
+	var currentBlock *block.Block
+	for iterator.hasNext() {
+		currentBlock = iterator.next()
+		description += fmt.Sprintf("Block: %d\n", currentBlock.Height)
+		for _, tx := range currentBlock.Transactions {
+			description += tx.Description()
+		}
 	}
-	var genesisBlock = block.CreateGenesisBlock(data)
-	database.Update(genesisBlock.Hash, genesisBlock.Serialize())
-	database.Update([]byte(cursorName), genesisBlock.Hash)
+	return description
 }
 
 func GetBlockchain() *Blockchain {
-	if !database.Exists() {
-		fmt.Println("Fatal: blockchain does not exist.")
-		os.Exit(1)
-	}
 	return &Blockchain{
-		latestHash: database.Retrieve([]byte(cursorName)),
+		latestHash: database.Retrieve([]byte(CursorName)),
 	}
+}
+
+func InitializeBlockchain(coinbase *transaction.Transaction) {
+	var genesisBlock = block.CreateGenesisBlock([]*transaction.Transaction{coinbase})
+	database.Update(genesisBlock.Hash, genesisBlock.Serialize())
+	database.Update([]byte(CursorName), genesisBlock.Hash)
+}
+
+// TODO: UTxO on chain access (should be deprecated)
+func (blockchain *Blockchain) FindUTxOByAddress(address string) []*transaction.UTxOut {
+	var iterator = blockchain.iterator()
+	var currentBlock *block.Block
+	var unspentTxOuts []*transaction.UTxOut
+	var spentTxOuts = map[string]map[int64]bool{}		// key: txID, value: [index, index, ...]
+	for iterator.hasNext() {
+		currentBlock = iterator.next()
+		for _, tx := range currentBlock.Transactions {
+			var txKey = fmt.Sprintf("%x", tx.TxID)
+			for _, txIn := range tx.TxIns {
+				if txIn.CanBeUnlockedByAddress(address) {
+					var txInKey = fmt.Sprintf("%x", txIn.TxID)
+					if spentTxOuts[txInKey] == nil {
+						spentTxOuts[txInKey] = map[int64]bool{}
+					}
+					spentTxOuts[txInKey][txIn.TxOutIndex] = true
+				}
+			}
+			for index, txOut := range tx.TxOuts {
+				if txOut.CanBeUnlockedByAddress(address) {
+					if spentTxOuts[txKey] == nil || spentTxOuts[txKey][int64(index)] == false {
+						var newUTxO = &transaction.UTxOut{
+							TxID:         tx.TxID,
+							TxOutIndex:   int64(index),
+							Amount:       txOut.Amount,
+							ScriptPubKey: txOut.ScriptPubKey,
+						}
+						unspentTxOuts = append(unspentTxOuts, newUTxO)
+					}
+				}
+			}
+		}
+	}
+	return unspentTxOuts
 }
