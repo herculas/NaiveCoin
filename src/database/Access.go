@@ -7,7 +7,7 @@ import (
 
 func Update(key []byte, value []byte) {
 	var database = establishConnection()
-	defer database.Close()
+	defer closeConnection(database)
 	err := database.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(BucketName))
 		if err != nil {
@@ -28,7 +28,7 @@ func Update(key []byte, value []byte) {
 func Retrieve(key []byte) []byte {
 	var res []byte
 	var database = establishConnection()
-	defer database.Close()
+	defer closeConnection(database)
 	err := database.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(BucketName))
 		if bucket != nil {
@@ -46,28 +46,11 @@ func Retrieve(key []byte) []byte {
 
 func Delete(key []byte) {
 	var database = establishConnection()
-	defer database.Close()
+	defer closeConnection(database)
 	err := database.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(BucketName))
 		if bucket != nil {
 			if err := bucket.Delete(key); err != nil {
-				log.Panic(err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		log.Panic(err)
-	}
-}
-
-func DeleteBucket() {
-	var database = establishConnection()
-	defer database.Close()
-	err := database.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(BucketName))
-		if bucket != nil {
-			if err := tx.DeleteBucket([]byte(BucketName)); err != nil {
 				log.Panic(err)
 			}
 		}

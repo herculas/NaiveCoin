@@ -17,11 +17,19 @@ func establishConnection() *bolt.DB {
 	return database
 }
 
+func closeConnection(database *bolt.DB) {
+	if err := database.Close(); err != nil {
+		log.Panic(err)
+	}
+}
+
 func IsExist() bool {
 	_, err := os.Stat(DBName)
 	return !os.IsNotExist(err)
 }
 
 func Drop() {
-	_ = os.Remove(DBName)
+	if err := os.Remove(DBName); err != nil {
+		log.Panic(err)
+	}
 }

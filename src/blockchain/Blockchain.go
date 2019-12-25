@@ -70,7 +70,7 @@ func (blockchain *Blockchain) FindUTxOByAddress(address string) []*transaction.U
 	var iterator = blockchain.iterator()
 	var currentBlock *block.Block
 	var unspentTxOuts []*transaction.UTxOut
-	var spentTxOuts = map[string]map[int64]bool{}		// key: txID, value: [index, index, ...]
+	var spentTxOuts = map[string]map[int64]bool{}
 	for iterator.hasNext() {
 		currentBlock = iterator.next()
 		for _, tx := range currentBlock.Transactions {
