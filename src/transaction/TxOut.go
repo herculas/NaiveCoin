@@ -1,26 +1,39 @@
 package transaction
 
 import (
+	"bytes"
 	"fmt"
-	"naivecoin-go/src/utils"
+	"naivecoin-go/src/utils/formatter"
+	"naivecoin-go/src/wallet"
 )
 
 type TxOut struct {
-	Amount       int64
-	ScriptPubKey string
+	Amount     int64
+	PubKeyHash []byte
 }
 
-func (txOut *TxOut) CanBeUnlockedByAddress(address string) bool {
-	return txOut.ScriptPubKey == address
+func NewTxOut(amount int64, address string) *TxOut {
+	var txOut = &TxOut{
+		Amount:     amount,
+		PubKeyHash: nil,
+	}
+	txOut.lock(address)
+	return txOut
+}
+
+func (txOut *TxOut) lock(address string) {
+	txOut.PubKeyHash = wallet.DecodeAddress(address)
+}
+
+func (txOut *TxOut) IsLockedWithKey(pubKeyHash []byte) bool {
+	return bytes.Compare(txOut.PubKeyHash, pubKeyHash) == 0
 }
 
 func (txOut *TxOut) Description() string {
 	return fmt.Sprint("|    Amount     |") +
-		utils.FormatIntegers(txOut.Amount, 64) +
+		formatter.FormatIntegers(txOut.Amount, 12) +
+		fmt.Sprint("| PubKeyHash |") +
+		formatter.FormatStrings("", 36) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
-		fmt.Sprint("| ScriptPubKey  |") +
-		utils.FormatStrings(txOut.ScriptPubKey, 64) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+")
+		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+")
 }

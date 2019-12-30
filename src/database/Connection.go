@@ -6,11 +6,10 @@ import (
 	"os"
 )
 
-const DBName = "data/naivechain.db"
-const BucketName = "blocks"
+const dbName = "data/naivechain.db"
 
 func establishConnection() *bolt.DB {
-	database, err := bolt.Open(DBName, 0600, nil)
+	database, err := bolt.Open(dbName, 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,12 +23,12 @@ func closeConnection(database *bolt.DB) {
 }
 
 func IsExist() bool {
-	_, err := os.Stat(DBName)
+	_, err := os.Stat(dbName)
 	return !os.IsNotExist(err)
 }
 
 func Drop() {
-	if err := os.Remove(DBName); err != nil {
+	if err := os.Remove(dbName); err != nil {
 		log.Panic(err)
 	}
 }

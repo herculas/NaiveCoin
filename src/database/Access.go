@@ -5,11 +5,13 @@ import (
 	"log"
 )
 
+const bucketName = "blocks"
+
 func Update(key []byte, value []byte) {
 	var database = establishConnection()
 	defer closeConnection(database)
 	err := database.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists([]byte(BucketName))
+		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			log.Panic(err)
 		}
@@ -30,7 +32,7 @@ func Retrieve(key []byte) []byte {
 	var database = establishConnection()
 	defer closeConnection(database)
 	err := database.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(BucketName))
+		bucket := tx.Bucket([]byte(bucketName))
 		if bucket != nil {
 			var content = bucket.Get(key)
 			res = make([]byte, len(content), len(content))
@@ -48,7 +50,7 @@ func Delete(key []byte) {
 	var database = establishConnection()
 	defer closeConnection(database)
 	err := database.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(BucketName))
+		bucket := tx.Bucket([]byte(bucketName))
 		if bucket != nil {
 			if err := bucket.Delete(key); err != nil {
 				log.Panic(err)

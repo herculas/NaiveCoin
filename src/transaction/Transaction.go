@@ -6,11 +6,12 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"naivecoin-go/src/utils"
+	"naivecoin-go/src/utils/formatter"
+	"naivecoin-go/src/wallet"
 	"os"
 )
 
-const CoinbaseAmount = 10
+const coinbaseAmount = 10
 
 type Transaction struct {
 	TxID   []byte
@@ -32,37 +33,44 @@ func (transaction *Transaction) Description() string {
 	var res = fmt.Sprintln("") +
 		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
 		fmt.Sprint("|Transaction ID |") +
-		utils.FormatStrings(fmt.Sprintf("%x", transaction.TxID), 64) +
+		formatter.FormatStrings(fmt.Sprintf("%x", transaction.TxID), 64) +
 		fmt.Sprintln("|") +
 		fmt.Sprintln("+---------------+----------------------------------------------------------------+")
 
 	for index, txIn := range transaction.TxIns {
 		res += fmt.Sprint("|") +
-			utils.FormatStrings(fmt.Sprintf("Transaction Input %d", index), 80) +
+			formatter.FormatStrings(fmt.Sprintf("Transaction Input %d", index), 80) +
 			fmt.Sprintln("|") +
 			fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
 			txIn.Description()
 	}
 	for index, txOut := range transaction.TxOuts {
 		res += fmt.Sprint("|") +
-			utils.FormatStrings(fmt.Sprintf("Transaction Output %d", index), 80) +
+			formatter.FormatStrings(fmt.Sprintf("Transaction Output %d", index), 80) +
 			fmt.Sprintln("|") +
-			fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
+			fmt.Sprintln("+---------------+------------+--------------+------------------------------------+") +
 			txOut.Description()
 	}
 	return res
+}
+
+func HashTransactions(transactions []*Transaction) []byte {
+	var txHashes [][]byte
+	for _, tx := range transactions {
+		txHashes = append(txHashes, tx.TxID)
+	}
+	var result = sha256.Sum256(bytes.Join(txHashes, []byte{}))
+	return result[:]
 }
 
 func CreateCoinbaseTransaction(address string) *Transaction {
 	var txIn = &TxIn{
 		TxID:       []byte{},
 		TxOutIndex: -1,
-		ScriptSig:  "",
+		Signature:  nil,
+		PubKey:     nil,
 	}
-	var txOut = &TxOut{
-		Amount:       CoinbaseAmount,
-		ScriptPubKey: address,
-	}
+	var txOut = NewTxOut(coinbaseAmount, address)
 	var transaction = &Transaction{
 		TxID:   nil,
 		TxIns:  []*TxIn{txIn},
@@ -72,7 +80,7 @@ func CreateCoinbaseTransaction(address string) *Transaction {
 	return transaction
 }
 
-func CreateNormalTransaction(uTxOs []*UTxOut, from string, to string, amount int64) *Transaction {
+func CreateNormalTransaction(uTxOs []*UTxOut, fromAddress string, toAddress string, amount int64) *Transaction {
 	var currentAmount int64 = 0
 	var changeAmount int64 = 0
 	var includedUTxOs []*UTxOut
@@ -95,20 +103,16 @@ func CreateNormalTransaction(uTxOs []*UTxOut, from string, to string, amount int
 	var txIns []*TxIn
 	var txOuts []*TxOut
 
-	for _, uTxO := range includedUTxOs {
-		txIns = append(txIns, ConvertTxInFromUTxO(uTxO))
-	}
-	txOuts = append(txOuts, &TxOut{
-		Amount:       amount,
-		ScriptPubKey: to,
-	})
-	if changeAmount != 0 {
-		txOuts = append(txOuts, &TxOut{
-			Amount:       changeAmount,
-			ScriptPubKey: from,
-		})
-	}
+	var wlt, _ = wallet.NewWallet()
+	var fromPubKey = wlt.GetKeyPair(fromAddress).PubKey
 
+	for _, uTxO := range includedUTxOs {
+		txIns = append(txIns, uTxO.ConvertToTxIn(fromPubKey))
+	}
+	txOuts = append(txOuts, NewTxOut(amount, toAddress))
+	if changeAmount != 0 {
+		txOuts = append(txOuts, NewTxOut(changeAmount, fromAddress))
+	}
 	var transaction = &Transaction{
 		TxID:   nil,
 		TxIns:  txIns,

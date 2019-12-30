@@ -18,7 +18,6 @@ func (iterator *Iterator) next() *block.Block {
 }
 
 func (iterator *Iterator) hasNext() bool {
-	var previousHashInt = new(big.Int)
-	previousHashInt.SetBytes(iterator.currentHash)
+	var previousHashInt = new(big.Int).SetBytes(iterator.currentHash)
 	return big.NewInt(0).Cmp(previousHashInt) != 0
 }

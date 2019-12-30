@@ -17,39 +17,48 @@ func validateArgs() {
 func Run() {
 	validateArgs()
 
-	var initCmd = flag.NewFlagSet("init", flag.ExitOnError)
-	var createTransactionCmd = flag.NewFlagSet("send", flag.ExitOnError)
-	var printChainCmd = flag.NewFlagSet("printChain", flag.ExitOnError)
-	var printTransCmd = flag.NewFlagSet("printTrans", flag.ExitOnError)
-	var getBalanceCmd = flag.NewFlagSet("getBalance", flag.ExitOnError)
+	var initChainCmd = flag.NewFlagSet("initchain", flag.ExitOnError)
+	var createAddCmd = flag.NewFlagSet("createaddress", flag.ExitOnError)
+	var createTxCmd = flag.NewFlagSet("send", flag.ExitOnError)
+	var printChainCmd = flag.NewFlagSet("printchain", flag.ExitOnError)
+	var printTransCmd = flag.NewFlagSet("printtrans", flag.ExitOnError)
+	var getBalanceCmd = flag.NewFlagSet("getbalance", flag.ExitOnError)
+	var listAddressCmd = flag.NewFlagSet("listaddress", flag.ExitOnError)
 	var helpCmd = flag.NewFlagSet("help", flag.ExitOnError)
 
-	var initArgs = initCmd.String("address", "", "Address of Who Generates Genesis Block")
-	// FIXME: It seems that a specific user should not initialize a transaction with others as a source
-	var sendFromArgs = createTransactionCmd.String("from", "", "Transaction Source Address")
-	var sendToArgs = createTransactionCmd.String("to", "", "Transaction Destination Address")
-	var sendAmountArgs = createTransactionCmd.String("amount", "", "Transaction Amount")
-	var balanceAddressArgs = getBalanceCmd.String("address", "", "Address of Account")
+	var initAddrArgs = initChainCmd.String("address", "", "Address of Who Generates Genesis Block")
+	var sendFromAddrArgs = createTxCmd.String("from", "", "Transaction Source Address")
+	var sendToAddrArgs = createTxCmd.String("to", "", "Transaction Destination Address")
+	var sendAmountArgs = createTxCmd.String("amount", "", "Transaction Amount")
+	var balanceAddrArgs = getBalanceCmd.String("address", "", "Address of Account")
 
 	switch os.Args[1] {
-	case "init":
-		if err := initCmd.Parse(os.Args[2:]); err != nil {
+	case "initchain":
+		if err := initChainCmd.Parse(os.Args[2:]); err != nil {
+			log.Panic(err)
+		}
+	case "createaddress":
+		if err := createAddCmd.Parse(os.Args[2:]); err != nil {
 			log.Panic(err)
 		}
 	case "send":
-		if err := createTransactionCmd.Parse(os.Args[2:]); err != nil {
+		if err := createTxCmd.Parse(os.Args[2:]); err != nil {
 			log.Panic(err)
 		}
-	case "printChain":
+	case "printchain":
 		if err := printChainCmd.Parse(os.Args[2:]); err != nil {
 			log.Panic(err)
 		}
-	case "printTrans":
+	case "printtrans":
 		if err := printTransCmd.Parse(os.Args[2:]); err != nil {
 			log.Panic(err)
 		}
-	case "getBalance":
+	case "getbalance":
 		if err := getBalanceCmd.Parse(os.Args[2:]); err != nil {
+			log.Panic(err)
+		}
+	case "listaddress":
+		if err := listAddressCmd.Parse(os.Args[2:]); err != nil {
 			log.Panic(err)
 		}
 	case "help":
@@ -63,12 +72,16 @@ func Run() {
 		os.Exit(1)
 	}
 
-	if initCmd.Parsed() {
-		initChain(*initArgs)
+	if initChainCmd.Parsed() {
+		initChain(*initAddrArgs)
 	}
 
-	if createTransactionCmd.Parsed() {
-		initTransaction(*sendFromArgs, *sendToArgs, *sendAmountArgs)
+	if createAddCmd.Parsed() {
+		createAddress()
+	}
+
+	if createTxCmd.Parsed() {
+		initTransaction(*sendFromAddrArgs, *sendToAddrArgs, *sendAmountArgs)
 	}
 	if printChainCmd.Parsed() {
 		printChain()
@@ -77,7 +90,10 @@ func Run() {
 		printTransactions()
 	}
 	if getBalanceCmd.Parsed() {
-		getBalance(*balanceAddressArgs)
+		getBalance(*balanceAddrArgs)
+	}
+	if listAddressCmd.Parsed() {
+		listAddresses()
 	}
 	if helpCmd.Parsed() {
 		printUsage()

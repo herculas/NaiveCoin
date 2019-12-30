@@ -1,11 +1,11 @@
-package utils
+package formatter
 
 import (
 	"fmt"
 	"log"
 	"strings"
 )
-
+ 
 func FormatIntegers(data int64, space int) string {
 	return FormatStrings(fmt.Sprintf("%d", data), space)
 }

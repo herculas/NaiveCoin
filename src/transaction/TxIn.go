@@ -1,39 +1,34 @@
 package transaction
 
 import (
+	"bytes"
 	"fmt"
-	"naivecoin-go/src/utils"
+	"naivecoin-go/src/utils/formatter"
+	"naivecoin-go/src/wallet"
 )
 
 type TxIn struct {
 	TxID       []byte
 	TxOutIndex int64
-	ScriptSig  string
+	PubKey     []byte
+	Signature  []byte
 }
 
-func (txIn *TxIn) CanBeUnlockedByAddress(address string) bool {
-	return txIn.ScriptSig == address
+// determines whether the current input matches a specific output
+func (txIn *TxIn) UsePubKey(pubKeyHash []byte) bool {
+	var lockingHash = wallet.HashPubKey(txIn.PubKey)
+	return bytes.Compare(lockingHash, pubKeyHash) == 0
 }
 
 func (txIn *TxIn) Description() string {
 	return fmt.Sprint("|    TxIn ID    |") +
-		utils.FormatStrings(fmt.Sprintf("%x", txIn.TxID), 64) +
+		formatter.FormatStrings(fmt.Sprintf("%x", txIn.TxID), 64) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
+		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+") +
 		fmt.Sprint("|  TxOut Index  |") +
-		utils.FormatIntegers(txIn.TxOutIndex, 64) +
+		formatter.FormatIntegers(txIn.TxOutIndex, 12) +
+		fmt.Sprint("|  Signature   |") +
+		formatter.FormatStrings("", 36) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
-		fmt.Sprint("|   Signature   |") +
-		utils.FormatStrings(txIn.ScriptSig, 64) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+")
-}
-
-func ConvertTxInFromUTxO(uTxO *UTxOut) *TxIn {
-	return &TxIn{
-		TxID:       uTxO.TxID,
-		TxOutIndex: uTxO.TxOutIndex,
-		ScriptSig:  uTxO.ScriptPubKey,
-	}
+		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+")
 }

@@ -7,7 +7,7 @@ import (
 	"naivecoin-go/src/transaction"
 )
 
-const CursorName = "latest"
+const cursorName = "latest"
 
 type Blockchain struct {
 	latestHash []byte
@@ -23,8 +23,8 @@ func (blockchain *Blockchain) AddBlock(transactions []*transaction.Transaction) 
 	var latestBlockBytes = database.Retrieve(blockchain.latestHash)
 	var latestBlock = block.Deserialize(latestBlockBytes)
 	var newBlock = block.CreateBlock(transactions, latestBlock.Height + 1, latestBlock.Hash)
-	database.Update(newBlock.Hash, newBlock.Serialize())
-	database.Update([]byte(CursorName), newBlock.Hash)
+	database.Update(newBlock.Hash, block.Serialize(newBlock))
+	database.Update([]byte(cursorName), newBlock.Hash)
 	blockchain.latestHash = newBlock.Hash
 }
 
@@ -45,7 +45,7 @@ func (blockchain *Blockchain) DescribeTransactions() string {
 	var currentBlock *block.Block
 	for iterator.hasNext() {
 		currentBlock = iterator.next()
-		description += fmt.Sprintf("Block: %d\n", currentBlock.Height)
+		description += fmt.Sprintf("Block: %d", currentBlock.Height)
 		for _, tx := range currentBlock.Transactions {
 			description += tx.Description()
 		}
@@ -55,18 +55,17 @@ func (blockchain *Blockchain) DescribeTransactions() string {
 
 func GetBlockchain() *Blockchain {
 	return &Blockchain{
-		latestHash: database.Retrieve([]byte(CursorName)),
+		latestHash: database.Retrieve([]byte(cursorName)),
 	}
 }
 
 func InitializeBlockchain(coinbase *transaction.Transaction) {
 	var genesisBlock = block.CreateGenesisBlock([]*transaction.Transaction{coinbase})
-	database.Update(genesisBlock.Hash, genesisBlock.Serialize())
-	database.Update([]byte(CursorName), genesisBlock.Hash)
+	database.Update(genesisBlock.Hash, block.Serialize(genesisBlock))
+	database.Update([]byte(cursorName), genesisBlock.Hash)
 }
 
-// TODO: UTxO on chain access (should be deprecated)
-func (blockchain *Blockchain) FindUTxOByAddress(address string) []*transaction.UTxOut {
+func (blockchain *Blockchain) FindUTxOByAddress(pubKeyHash []byte) []*transaction.UTxOut {
 	var iterator = blockchain.iterator()
 	var currentBlock *block.Block
 	var unspentTxOuts []*transaction.UTxOut
@@ -76,7 +75,7 @@ func (blockchain *Blockchain) FindUTxOByAddress(address string) []*transaction.U
 		for _, tx := range currentBlock.Transactions {
 			var txKey = fmt.Sprintf("%x", tx.TxID)
 			for _, txIn := range tx.TxIns {
-				if txIn.CanBeUnlockedByAddress(address) {
+				if txIn.UsePubKey(pubKeyHash) {
 					var txInKey = fmt.Sprintf("%x", txIn.TxID)
 					if spentTxOuts[txInKey] == nil {
 						spentTxOuts[txInKey] = map[int64]bool{}
@@ -85,13 +84,13 @@ func (blockchain *Blockchain) FindUTxOByAddress(address string) []*transaction.U
 				}
 			}
 			for index, txOut := range tx.TxOuts {
-				if txOut.CanBeUnlockedByAddress(address) {
+				if txOut.IsLockedWithKey(pubKeyHash) {
 					if spentTxOuts[txKey] == nil || spentTxOuts[txKey][int64(index)] == false {
 						var newUTxO = &transaction.UTxOut{
-							TxID:         tx.TxID,
-							TxOutIndex:   int64(index),
-							Amount:       txOut.Amount,
-							ScriptPubKey: txOut.ScriptPubKey,
+							TxID:       tx.TxID,
+							TxOutIndex: int64(index),
+							Amount:     txOut.Amount,
+							PubKeyHash: txOut.PubKeyHash,
 						}
 						unspentTxOuts = append(unspentTxOuts, newUTxO)
 					}
