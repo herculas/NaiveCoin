@@ -31,24 +31,24 @@ func (transaction *Transaction) SetTxID() {
 
 func (transaction *Transaction) Description() string {
 	var res = fmt.Sprintln("") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
-		fmt.Sprint("|Transaction ID |") +
-		formatter.FormatStrings(fmt.Sprintf("%x", transaction.TxID), 64) +
+		fmt.Sprintln("+----------+---------------------+") +
+		fmt.Sprint("|   TxID   |") +
+		formatter.FormatStrings(fmt.Sprintf("%x", transaction.TxID), 21) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+")
+		fmt.Sprintln("+----------+---------------------+")
 
 	for index, txIn := range transaction.TxIns {
 		res += fmt.Sprint("|") +
-			formatter.FormatStrings(fmt.Sprintf("Transaction Input %d", index), 80) +
+			formatter.FormatStrings(fmt.Sprintf("TxInput %d", index), 32) +
 			fmt.Sprintln("|") +
-			fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
+			fmt.Sprintln("+----------+---------------------+") +
 			txIn.Description()
 	}
 	for index, txOut := range transaction.TxOuts {
 		res += fmt.Sprint("|") +
-			formatter.FormatStrings(fmt.Sprintf("Transaction Output %d", index), 80) +
+			formatter.FormatStrings(fmt.Sprintf("TxOutput %d", index), 32) +
 			fmt.Sprintln("|") +
-			fmt.Sprintln("+---------------+------------+--------------+------------------------------------+") +
+			fmt.Sprintln("+----------+---------------------+") +
 			txOut.Description()
 	}
 	return res

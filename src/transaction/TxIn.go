@@ -21,14 +21,17 @@ func (txIn *TxIn) UsePubKey(pubKeyHash []byte) bool {
 }
 
 func (txIn *TxIn) Description() string {
-	return fmt.Sprint("|    TxIn ID    |") +
-		formatter.FormatStrings(fmt.Sprintf("%x", txIn.TxID), 64) +
+	return fmt.Sprint("|  TxInID  |") +
+		formatter.FormatStrings(fmt.Sprintf("%x", txIn.TxID), 21) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+") +
-		fmt.Sprint("|  TxOut Index  |") +
-		formatter.FormatIntegers(txIn.TxOutIndex, 12) +
-		fmt.Sprint("|  Signature   |") +
-		formatter.FormatStrings("", 36) +
+		fmt.Sprint("|TxOutIndex|") +
+		formatter.FormatIntegers(txIn.TxOutIndex, 21) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+")
+		fmt.Sprint("|  PubKey  |") +
+		formatter.FormatStrings(fmt.Sprintf("%x", txIn.PubKey), 21) +
+		fmt.Sprintln("|") +
+		fmt.Sprint("|Signature |") +
+		formatter.FormatStrings(fmt.Sprintf("%x", txIn.Signature), 21) +
+		fmt.Sprintln("|") +
+		fmt.Sprintln("+----------+---------------------+")
 }

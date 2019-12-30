@@ -55,13 +55,13 @@ func (block *Block) Validate() bool {
 
 func (block *Block) Description() string {
 	return fmt.Sprintln("") +
-		fmt.Sprintln("+---------------+--------------------------------+--------+----------------------+") +
+		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
 		fmt.Sprint("| Block Height  |") +
-		formatter.FormatIntegers(block.Height, 32) +
-		fmt.Sprint("|  Time  |") +
-		fmt.Sprint(time.Unix(block.Timestamp, 0).Format("2006-01-02 03:04:05 PM")) +
+		formatter.FormatIntegers(block.Height, 24) +
+		fmt.Sprint("|   Time    |") +
+		fmt.Sprint(formatter.FormatStrings(time.Unix(block.Timestamp, 0).Format("2006-01-02 15:04:05"), 27)) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+--------------------------------+--------+----------------------+") +
+		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
 		fmt.Sprint("|  Txs Digest   |") +
 		fmt.Sprintf("%x", transaction.HashTransactions(block.Transactions)) +
 		fmt.Sprintln("|") +
@@ -79,8 +79,7 @@ func (block *Block) Description() string {
 		fmt.Sprint("|   Nonce   |") +
 		formatter.FormatIntegers(block.Nonce, 27) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
-		fmt.Sprintln("")
+		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+")
 }
 
 func Serialize(block *Block) []byte {

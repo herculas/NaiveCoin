@@ -30,10 +30,11 @@ func (txOut *TxOut) IsLockedWithKey(pubKeyHash []byte) bool {
 }
 
 func (txOut *TxOut) Description() string {
-	return fmt.Sprint("|    Amount     |") +
-		formatter.FormatIntegers(txOut.Amount, 12) +
-		fmt.Sprint("| PubKeyHash |") +
-		formatter.FormatStrings("", 36) +
+	return fmt.Sprint("|  Amount  |") +
+		formatter.FormatIntegers(txOut.Amount, 21) +
 		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------+--------------+------------------------------------+")
+		fmt.Sprint("|PubKeyHash|") +
+		formatter.FormatStrings(fmt.Sprintf("%x", txOut.PubKeyHash), 21) +
+		fmt.Sprintln("|") +
+		fmt.Sprintln("+----------+---------------------+")
 }
