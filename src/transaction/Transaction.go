@@ -6,88 +6,52 @@ import (
 	"encoding/gob"
 	"fmt"
 	"log"
-	"naivecoin-go/src/utils/formatter"
-	"naivecoin-go/src/wallet"
+	"naivechain/src/config"
+	"naivechain/src/util/formatter"
+	"naivechain/src/wallet"
 	"os"
 )
 
-const coinbaseAmount = 10
-
 type Transaction struct {
-	TxID   []byte
-	TxIns  []*TxIn
-	TxOuts []*TxOut
+	Id   []byte
+	Ins  []*in
+	Outs []*out
 }
 
-func (transaction *Transaction) SetTxID() {
-	var encoded bytes.Buffer
-	var encoder = gob.NewEncoder(&encoded)
-	if err := encoder.Encode(transaction); err != nil {
-		log.Panic(err)
-	}
-	var hash = sha256.Sum256(encoded.Bytes())
-	transaction.TxID = hash[:]
-}
-
-func (transaction *Transaction) Description() string {
-	var res = fmt.Sprintln("") +
-		fmt.Sprintln("+----------+---------------------+") +
-		fmt.Sprint("|   TxID   |") +
-		formatter.FormatStrings(fmt.Sprintf("%x", transaction.TxID), 21) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+----------+---------------------+")
-
-	for index, txIn := range transaction.TxIns {
-		res += fmt.Sprint("|") +
-			formatter.FormatStrings(fmt.Sprintf("TxInput %d", index), 32) +
-			fmt.Sprintln("|") +
-			fmt.Sprintln("+----------+---------------------+") +
-			txIn.Description()
-	}
-	for index, txOut := range transaction.TxOuts {
-		res += fmt.Sprint("|") +
-			formatter.FormatStrings(fmt.Sprintf("TxOutput %d", index), 32) +
-			fmt.Sprintln("|") +
-			fmt.Sprintln("+----------+---------------------+") +
-			txOut.Description()
-	}
-	return res
-}
-
-func HashTransactions(transactions []*Transaction) []byte {
-	var txHashes [][]byte
-	for _, tx := range transactions {
-		txHashes = append(txHashes, tx.TxID)
-	}
-	var result = sha256.Sum256(bytes.Join(txHashes, []byte{}))
-	return result[:]
-}
-
-func CreateCoinbaseTransaction(address string) *Transaction {
-	var txIn = &TxIn{
-		TxID:       []byte{},
+func CreateCoinbase(address string) *Transaction {
+	txIn := &in{
+		TxId:       []byte{},
 		TxOutIndex: -1,
+		PublicKey:  nil,
 		Signature:  nil,
-		PubKey:     nil,
 	}
-	var txOut = NewTxOut(coinbaseAmount, address)
-	var transaction = &Transaction{
-		TxID:   nil,
-		TxIns:  []*TxIn{txIn},
-		TxOuts: []*TxOut{txOut},
+	txOut := createOut(config.CoinbaseReward, address)
+	transaction := &Transaction{
+		Id:   nil,
+		Ins:  []*in{txIn},
+		Outs: []*out{txOut},
 	}
-	transaction.SetTxID()
+	transaction.setId()
 	return transaction
 }
 
-func CreateNormalTransaction(uTxOs []*UTxOut, fromAddress string, toAddress string, amount int64) *Transaction {
-	var currentAmount int64 = 0
-	var changeAmount int64 = 0
-	var includedUTxOs []*UTxOut
+func CreateNormal(from string, to string, amount int64) *Transaction {
+	balance := GetTotalAmount([]byte(from))
+	if balance < amount {
+		fmt.Println("Fatal: amount overflow.")
+		fmt.Println("You do not have enough amount to transfer.")
+		os.Exit(1)
+	}
 
-	for _, uTxO := range uTxOs {
-		includedUTxOs = append(includedUTxOs, uTxO)
-		currentAmount += uTxO.Amount
+	uTxOuts := findAllUTxOuts([]byte(from))
+	currentAmount := int64(0)
+	changeAmount := int64(0)
+
+	var includedUTxOuts []*UTxOut
+	for uTxOutStr := range uTxOuts {
+		uTxOut := uTxOutDeserialize([]byte(uTxOutStr))
+		includedUTxOuts = append(includedUTxOuts, uTxOut)
+		currentAmount += uTxOut.Amount
 		if currentAmount >= amount {
 			changeAmount = currentAmount - amount
 			break
@@ -95,29 +59,93 @@ func CreateNormalTransaction(uTxOs []*UTxOut, fromAddress string, toAddress stri
 	}
 
 	if currentAmount < amount {
-		fmt.Println("Fatal: Amount Overflow.")
+		fmt.Println("Fatal: amount overflow.")
 		fmt.Println("You do not have enough amount to transfer.")
 		os.Exit(1)
 	}
+	var txIns []*in
+	var txOuts []*out
 
-	var txIns []*TxIn
-	var txOuts []*TxOut
+	fromPublicKey := wallet.Load([]byte(from)).Public
 
-	var wlt, _ = wallet.NewWallet()
-	var fromPubKey = wlt.GetKeyPair(fromAddress).PubKey
-
-	for _, uTxO := range includedUTxOs {
-		txIns = append(txIns, uTxO.ConvertToTxIn(fromPubKey))
+	for _, uTxOut := range includedUTxOuts {
+		txIns = append(txIns, uTxOut.convertToIn(fromPublicKey))
 	}
-	txOuts = append(txOuts, NewTxOut(amount, toAddress))
+	txOuts = append(txOuts, createOut(amount, to))
 	if changeAmount != 0 {
-		txOuts = append(txOuts, NewTxOut(changeAmount, fromAddress))
+		txOuts = append(txOuts, createOut(changeAmount, from))
 	}
-	var transaction = &Transaction{
-		TxID:   nil,
-		TxIns:  txIns,
-		TxOuts: txOuts,
+
+	transaction := &Transaction{
+		Id:   nil,
+		Ins:  txIns,
+		Outs: txOuts,
 	}
-	transaction.SetTxID()
+	transaction.setId()
 	return transaction
+}
+
+func (transaction *Transaction) setId() {
+	encoded := new(bytes.Buffer)
+	encoder := gob.NewEncoder(encoded)
+	if err := encoder.Encode(transaction); err != nil {
+		log.Panic(err)
+	}
+	hash := sha256.Sum256(encoded.Bytes())
+	transaction.Id = hash[:]
+}
+
+func (transaction *Transaction) UpdateNormalUTxOs() {
+	for _, txIn := range transaction.Ins {
+		deleteUTxOut(*txIn)
+	}
+	for index, txOut := range transaction.Outs {
+		addUTxOut(transaction.Id, int64(index), *txOut)
+	}
+}
+
+func (transaction *Transaction) UpdateCoinbaseUTxOs() {
+	for index, txOut := range transaction.Outs {
+		addUTxOut(transaction.Id, int64(index), *txOut)
+	}
+}
+
+func (transaction *Transaction) Description(blockHeight int64) string {
+	inCount := len(transaction.Ins)
+	outCount := len(transaction.Outs)
+	var res = fmt.Sprintln("┏━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓") +
+		fmt.Sprint("┃ Block No │") +
+		formatter.Integers(blockHeight, 64) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┠──────────┼────────────────────────────────────────────────────────────────┨") +
+		fmt.Sprint("┃   TxID   │") +
+		formatter.Strings(fmt.Sprintf("%x", transaction.Id), 64) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┣━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫")
+
+	for index, txIn := range transaction.Ins {
+		res += fmt.Sprint("┃") +
+			formatter.Strings(fmt.Sprintf("Input %d", index), 75) +
+			fmt.Sprintln("┃") +
+			fmt.Sprintln("┠──────────┬────────────────────────────────────────────────────────────────┨") +
+			txIn.description(index, inCount)
+	}
+	for index, txOut := range transaction.Outs {
+		res += fmt.Sprint("┃") +
+			formatter.Strings(fmt.Sprintf("Output %d", index), 75) +
+			fmt.Sprintln("┃") +
+			fmt.Sprintln("┠──────────┬────────────────────────────────────────────────────────────────┨") +
+			txOut.description(index, outCount)
+	}
+	return res
+}
+
+// TODO: should be Merkle Tree
+func HashTransactions(transactions []*Transaction) []byte {
+	var txHashes [][]byte
+	for _, tx := range transactions {
+		txHashes = append(txHashes, tx.Id)
+	}
+	res := sha256.Sum256(bytes.Join(txHashes, []byte{}))
+	return res[:]
 }

@@ -7,6 +7,11 @@ import (
 
 var alphabet = []byte("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
 
+func reverseBytes(data []byte) {
+	for i, j := 0, len(data)-1; i < j; i, j = i+1, j-1 {
+		data[i], data[j] = data[j], data[i]
+	}
+}
 func Base58Encode(input []byte) []byte {
 	var result []byte
 	var inputInt = new(big.Int).SetBytes(input)
@@ -44,10 +49,4 @@ func Base58Decode(input []byte) []byte {
 	var decoded = result.Bytes()
 	decoded = append(bytes.Repeat([]byte{byte(0x00)}, zeroBytes), decoded...)
 	return decoded
-}
-
-func reverseBytes(data []byte) {
-	for i, j := 0, len(data)-1; i < j; i, j = i+1, j-1 {
-		data[i], data[j] = data[j], data[i]
-	}
 }

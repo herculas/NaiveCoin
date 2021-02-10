@@ -5,12 +5,11 @@ import (
 	"log"
 )
 
-const bucketName = "blocks"
+func Update(bucketName string, key []byte, value []byte) {
+	var db = establishConn()
+	defer closeConn(db)
 
-func Update(key []byte, value []byte) {
-	var database = establishConnection()
-	defer closeConnection(database)
-	err := database.Update(func(tx *bolt.Tx) error {
+	err := db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte(bucketName))
 		if err != nil {
 			log.Panic(err)
@@ -27,11 +26,11 @@ func Update(key []byte, value []byte) {
 	}
 }
 
-func Retrieve(key []byte) []byte {
+func Retrieve(bucketName string, key []byte) []byte {
 	var res []byte
-	var database = establishConnection()
-	defer closeConnection(database)
-	err := database.View(func(tx *bolt.Tx) error {
+	var db = establishConn()
+	defer closeConn(db)
+	err := db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucketName))
 		if bucket != nil {
 			var content = bucket.Get(key)
@@ -46,15 +45,64 @@ func Retrieve(key []byte) []byte {
 	return res
 }
 
-func Delete(key []byte) {
-	var database = establishConnection()
-	defer closeConnection(database)
-	err := database.Update(func(tx *bolt.Tx) error {
+func Iterate(bucketName string, exec func(k, v []byte) error) {
+	db := establishConn()
+	defer closeConn(db)
+	err := db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		if bucket != nil {
+			if err := bucket.ForEach(exec); err != nil {
+				log.Panic(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func Delete(bucketName string, key []byte) {
+	var db = establishConn()
+	defer closeConn(db)
+	err := db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(bucketName))
 		if bucket != nil {
 			if err := bucket.Delete(key); err != nil {
 				log.Panic(err)
 			}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func CheckBucket(bucketName string) bool {
+	var state = true
+	db := establishConn()
+	defer closeConn(db)
+	err := db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		if bucket == nil {
+			state = false
+		}
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	return state
+}
+
+func DropBucket(bucketName string) {
+	db := establishConn()
+	defer closeConn(db)
+	err := db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(bucketName))
+		if bucket != nil {
+			return tx.DeleteBucket([]byte(bucketName))
 		}
 		return nil
 	})

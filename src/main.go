@@ -1,6 +1,6 @@
 package main
 
-import "naivecoin-go/src/command"
+import "naivechain/src/command"
 
 func main() {
 	command.Run()

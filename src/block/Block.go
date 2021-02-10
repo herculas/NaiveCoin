@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"log"
 	"math/big"
-	"naivecoin-go/src/transaction"
-	"naivecoin-go/src/utils/convertor"
-	"naivecoin-go/src/utils/formatter"
+	"naivechain/src/transaction"
+	"naivechain/src/util/convertor"
+	"naivechain/src/util/formatter"
 	"time"
 )
 
@@ -23,22 +23,38 @@ type Block struct {
 	Transactions []*transaction.Transaction
 }
 
-func (block *Block) mineBlock() {
-	var nonce int64 = 0
+// TODO: target adjustment
+func Create(height int64, target int64, previousHash []byte, transactions []*transaction.Transaction) *Block {
+	var block = &Block{
+		Height:       height,
+		Timestamp:    time.Now().Unix(),
+		Nonce:        0,
+		Target:       target,
+		PreviousHash: previousHash,
+		Hash:         nil,
+		Transactions: transactions,
+	}
+	block.mine()
+	return block
+}
+
+func (block *Block) mine() {
+	nonce := int64(0)
 	var hash [32]byte
 	var hashInt = new(big.Int)
 	for {
-		var dataBytes = bytes.Join([][]byte{
+		dataBytes := bytes.Join([][]byte{
 			block.PreviousHash,
 			transaction.HashTransactions(block.Transactions),
-			convertor.IntToHexBytes(block.Timestamp),
-			convertor.IntToHexBytes(block.Height),
-			convertor.IntToHexBytes(nonce),
+			convertor.IntToHex(block.Timestamp),
+			convertor.IntToHex(block.Height),
+			convertor.IntToHex(nonce),
 		}, []byte{})
+
 		hash = sha256.Sum256(dataBytes)
 		fmt.Printf("\r%x", hash)
 		hashInt.SetBytes(hash[:])
-		if formatter.FormatTarget(block.Target).Cmp(hashInt) == 1 {
+		if formatter.Target(block.Target).Cmp(hashInt) == 1 {
 			break
 		}
 		nonce++
@@ -48,78 +64,54 @@ func (block *Block) mineBlock() {
 	block.Nonce = nonce
 }
 
-func (block *Block) Validate() bool {
+func (block *Block) validate() bool {
 	var hashInt = new(big.Int).SetBytes(block.Hash)
-	return formatter.FormatTarget(block.Target).Cmp(hashInt) == 1
-}
-
-func (block *Block) Description() string {
-	return fmt.Sprintln("") +
-		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
-		fmt.Sprint("| Block Height  |") +
-		formatter.FormatIntegers(block.Height, 24) +
-		fmt.Sprint("|   Time    |") +
-		fmt.Sprint(formatter.FormatStrings(time.Unix(block.Timestamp, 0).Format("2006-01-02 15:04:05"), 27)) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
-		fmt.Sprint("|  Txs Digest   |") +
-		fmt.Sprintf("%x", transaction.HashTransactions(block.Transactions)) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
-		fmt.Sprint("|     Hash      |") +
-		fmt.Sprintf("%x", block.Hash) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+----------------------------------------------------------------+") +
-		fmt.Sprint("| Previous Hash |") +
-		fmt.Sprintf("%x", block.PreviousHash) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+") +
-		fmt.Sprint("|    Target     |") +
-		formatter.FormatIntegers(block.Target, 24) +
-		fmt.Sprint("|   Nonce   |") +
-		formatter.FormatIntegers(block.Nonce, 27) +
-		fmt.Sprintln("|") +
-		fmt.Sprintln("+---------------+------------------------+-----------+---------------------------+")
+	return formatter.Target(block.Target).Cmp(hashInt) == 1
 }
 
 func Serialize(block *Block) []byte {
-	var result bytes.Buffer
-	var encoder = gob.NewEncoder(&result)
+	blob := new(bytes.Buffer)
+	encoder := gob.NewEncoder(blob)
 	if err := encoder.Encode(block); err != nil {
 		log.Panic(err)
 	}
-	return result.Bytes()
+	return blob.Bytes()
 }
 
-func Deserialize(blockBytes []byte) *Block {
+func Deserialize(blob []byte) *Block {
 	var block Block
-	var decoder = gob.NewDecoder(bytes.NewReader(blockBytes))
+	var decoder = gob.NewDecoder(bytes.NewReader(blob))
 	if err := decoder.Decode(&block); err != nil {
 		log.Panic(err)
 	}
 	return &block
 }
 
-// TODO: Target negotiation
-func CreateBlock(transactions []*transaction.Transaction, height int64, previousHash []byte) *Block {
-	var newBlock = &Block{
-		Height:       height,
-		Timestamp:    time.Now().Unix(),
-		Nonce:        0,
-		Target:       16,
-		PreviousHash: previousHash,
-		Hash:         nil,
-		Transactions: transactions,
-	}
-	newBlock.mineBlock()
-	return newBlock
-}
-
-func CreateGenesisBlock(transactions []*transaction.Transaction) *Block {
-	return CreateBlock(transactions, 0, []byte{
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-	})
+func (block *Block) Description() string {
+	return fmt.Sprintln("") +
+		fmt.Sprintln("┏━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━┓") +
+		fmt.Sprint("┃ Block Height  │") +
+		formatter.Integers(block.Height, 24) +
+		fmt.Sprint("│   Time    │") +
+		fmt.Sprint(formatter.Strings(time.Unix(block.Timestamp, 0).Format("2006-01-02 15:04:05"), 27)) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┠───────────────┼────────────────────────┴───────────┴───────────────────────────┨") +
+		fmt.Sprint("┃     Hash      │") +
+		fmt.Sprintf("%x", block.Hash) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┠───────────────┼────────────────────────────────────────────────────────────────┨") +
+		fmt.Sprint("┃ Previous Hash │") +
+		fmt.Sprintf("%x", block.PreviousHash) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┠───────────────┼────────────────────────────────────────────────────────────────┨") +
+		fmt.Sprint("┃  Txs Digest   │") +
+		fmt.Sprintf("%x", transaction.HashTransactions(block.Transactions)) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┠───────────────┼────────────────────────┬───────────┬───────────────────────────┨") +
+		fmt.Sprint("┃    Target     │") +
+		formatter.Integers(block.Target, 24) +
+		fmt.Sprint("│   Nonce   │") +
+		formatter.Integers(block.Nonce, 27) +
+		fmt.Sprintln("┃") +
+		fmt.Sprintln("┗━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━┛")
 }

@@ -19,3 +19,9 @@
 
 # Database file
 *.db
+
+# Build file
+pkg/
+
+# Mac OS
+.DS_Store
